@@ -1,6 +1,8 @@
 import os
 import json
 import random
+import socket
+import time
 
 from requests_oauthlib import requests
 import xml.etree.ElementTree as ET
@@ -28,6 +30,14 @@ spotId = "0kGtoQJ7kRRE4Wz5lKhofJjsXf95t27LK"
 removeId = [741276466,741263971,741254154,741245153,741245060]
 hashtags=['oya','ironman','triathlon','expedition',"run","marathon"]
 
+# debug on local
+print("Running on "+socket.gethostname())
+if "digital-gf.local" in socket.gethostname() :
+	print("Local testing...")
+	local = True
+else :
+    local = False
+
 def loadxml(params_file) :
     tree = ET.parse(params_file)
     return tree.getroot()
@@ -39,10 +49,10 @@ def loadjson(json_file) :
     else :
         return {}
 
-def createSentence(ville,meteo) :
+def createSentence(ville,meteo,disday) :
 
     locationSentence=[
-        "Je suis vers VILLE,",
+        "Je suis vers VILLE",
         "Je pédale à VILLE",
         "J'ai visité VILLE",
         "Je suis à VILLE",
@@ -50,12 +60,46 @@ def createSentence(ville,meteo) :
         "Rejoignez moi, je suis à VILLE",
         "Passage par VILLE",
         "Connaissez vous VILLE ? J'y suis en ce moment !",
-        "Si vous me rattrapez à VILLE, je vous offre une bière"
+        "Si vous me rattrapez à VILLE, je vous offre une bière",
+        "De Porspoder à VILLE, la digue la digue..",
+        "Si vous passez par VILLE et que vous voyez un cycliste..",
+        "Sur les routes de VILLE",
+        "Je viens de croiser un panneau qui souhaite la bienvenue à VILLE",
+        "VILLE, son troquet, sa poste et sa mairie",
+        "Le village de VILLE souhaite la bienvenue aux cyclistes",
+        "VILLE : le bitume de ses routes, et ses paysages",
+        "Si j'avais un peu plus de temps je visiterais bien VILLE"
     ]
+
+    if disday < 20 :
+        locationSentence.append("Je visiterais bien VILLE, mais je n'ai fait que "+disday+" km ce matin")
+
+    if disday > 50 :
+        locationSentence.append("Déja "+disday+" km aujourd'hui et je suis enfin à VILLE")
+        locationSentence.append(disday+" km depuis mon réveil, et me voici à VILLE")
 
     weet_text = random.choice(locationSentence).replace('VILLE',results.city)
 
     return weet_text
+
+def computeDistance(lilianjson) :
+    distToday = 0
+    distTotal = 0
+    for id in lilianjson :
+        d=0
+        today=False
+        for s in lilianjson[id] :
+            if 'distance' in s :
+                d = s['distance']
+                distTotal = distTotal + d
+
+            if 'time' in s and s['time'].startswith(time.strftime("%Y-%m-%d")) :
+                today=True
+
+            if today and d > 0 :
+                distToday = distToday + d
+                d=0
+    return distToday,distTotal
 
 if __name__ == "__main__":
 
@@ -70,12 +114,6 @@ if __name__ == "__main__":
     	elif service.get("name") == "darksky" :
             darksky_token=service.find("token").text
             darksky_url=service.find("url").text
-    	elif service.get("name") == "mastodon" :
-    		mastodon = Mastodon(
-    		client_id = service.find("client_id").text,
-    		client_secret = service.find("client_secret").text,
-    		access_token = service.find("access_token").text,
-    		api_base_url = "https://mamot.fr")
 
     # Local record
     lilianjsonfile="lilian.json"
@@ -113,6 +151,8 @@ if __name__ == "__main__":
 
             link = "https://www.google.com/maps/@{},{},12z".format(msg_lat, msg_long)
 
+            #link = "http://maps.google.com/?q={},France/@{},{},12z".format(results.city,msg_lat, msg_long)
+
             dark_decode=darksky.getDarkWeather(darksky_url,darksky_token,msg_lat, msg_long)
             dark_icon = dark_decode["currently"]["icon"]
             dark_weather = dark_decode["currently"]
@@ -125,7 +165,7 @@ if __name__ == "__main__":
                 route_time, route_distance = route.calc_route_info()
                 print("+-[{} km] depuis le dernier point" .format(route_distance))
 
-            tweet_text = createSentence(results.city, "none")
+            tweet_text = createSentence(results.city, "none",route_distance)
 
             tweet_text += " "+ link
             tweet_text += " #oya"
@@ -141,9 +181,13 @@ if __name__ == "__main__":
                 'distance' : route_distance
             })
 
-            twitterapi = TwitterAPI(consumer_key=consumer_key, consumer_secret=consumer_secret, access_token_key=access_token_key, access_token_secret=access_token_secret)
+            if not local and route_distance >= 1 :
+                twitterapi = TwitterAPI(consumer_key=consumer_key, consumer_secret=consumer_secret, access_token_key=access_token_key, access_token_secret=access_token_secret)
 
-            print(tweet_text)
+                twitterapi.request('statuses/update', {'status':tweet_text, 'lat':msg_lat,'long':msg_long})
+
+            print("+-[Tweet] {}".format(tweet_text))
+
             #img = wikipedia.getImage(results.city)
             #if (img) :
             #    print("Pic : "+img)
@@ -151,7 +195,10 @@ if __name__ == "__main__":
             #     data = response.content
             #     twitterapi.request('statuses/update_with_media', {'status':tweet_text}, {'media[]':data})
             # else :
-            twitterapi.request('statuses/update', {'status':tweet_text})
 
-with open(lilianjsonfile, 'w') as jsonfile:
-    json.dump(lilianjson, jsonfile)
+    distToday,distTotal = computeDistance(lilianjson)
+
+    print("+-[Distance] Today : {} km, Total : {} km".format(int(distToday),int(distTotal)))
+
+    with open(lilianjsonfile, 'w') as jsonfile:
+        json.dump(lilianjson, jsonfile)

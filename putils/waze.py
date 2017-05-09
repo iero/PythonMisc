@@ -83,5 +83,5 @@ class WazeRouteCalculator(object):
             distance += segment['length']
         route_time = time / 60.0
         route_distance = distance / 1000.0
-        self.log.info('Time %.2f minutes, distance %.2f km.', route_time, route_distance)
+        #self.log.info('Time %.2f minutes, distance %.2f km.', route_time, route_distance)
         return route_time, route_distance

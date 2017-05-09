@@ -12,11 +12,6 @@ from pygeocoder import Geocoder
 import pandas as pd
 import numpy as np
 
-import putils.darksky as darksky
-
-#pip install wikipedia
-import putils.wikipedia as wikipedia
-
 import putils.waze as waze
 
 headers = {'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'}
@@ -35,7 +30,6 @@ def loadjson(json_file) :
             return json.load(f)
     else :
         return {}
-
 
 if __name__ == "__main__":
 
@@ -57,22 +51,33 @@ if __name__ == "__main__":
     response = r.content.decode("utf-8")
     json_decode=json.loads(response)
 
+    old_msg_lat=None
+    old_msg_long=None
+
     for message in json_decode["response"]["feedMessageResponse"]["messages"]["message"] :
         msg_id=message["id"]
         msg_time=message["dateTime"]
         msg_lat=message["latitude"]
         msg_long=message["longitude"]
 
-        for s in lilianjson[msg_id] :
+        print("+-[{}] : {} ({},{})".format(msg_id,msg_time,msg_lat, msg_long))
+
+        for s in lilianjson[str(msg_id)] :
             if 'weather' in s :
-            dark_weather=s['weather']
-        
+                #print(s['weather'])
+                dark_weather = s['weather']
+            if 'distance' in s :
+                route_distance = s['distance']
+
+        #print("+-[weather] : {}".format(s["weather"]))
+        #print("+-[distance] : {}".format(s["distance"]))
+
         # if "messageContent" in message :
         #     print(message["messageContent"])
 
         # New entry
         results = Geocoder.reverse_geocode(msg_lat,msg_long)
-        link = "https://www.google.com/maps/@{},{},12z".format(msg_lat, msg_long)
+        #link = "http://maps.google.com/?q={},France/@{},{},12z".format(results.city,msg_lat, msg_long)
 
         # dark_decode=darksky.getDarkWeather(darksky_url,darksky_token,msg_lat, msg_long)
         # dark_icon = dark_decode["currently"]["icon"]
@@ -81,11 +86,11 @@ if __name__ == "__main__":
 
         # Distance
         if old_msg_lat and old_msg_long :
-            route = waze.WazeRouteCalculator(lastPoint["latitude"], lastPoint["longitude"], old_msg_lat, old_msg_long)
+            route = waze.WazeRouteCalculator(old_msg_lat, old_msg_long,msg_lat, msg_long)
             route_time, route_distance = route.calc_route_info()
             print("+-[{} km] depuis le dernier point" .format(route_distance))
 
-        img = wikipedia.getImage(results.city)
+        #img = wikipedia.getImage(results.city)
 
         lilianjson[msg_id] = []
         lilianjson[msg_id].append({
@@ -94,13 +99,15 @@ if __name__ == "__main__":
             'city': results.city,
             'latitude' : msg_lat,
             'longitude' : msg_long,
-            'image' : img,
-                #'weather' : dark_weather
+            'weather' : dark_weather,
             'distance' : route_distance
         })
+        old_msg_lat = msg_lat
+        old_msg_long = msg_long
 
-        print("+-[{}] : {} ({},{})".format(msg_id,msg_time,msg_lat, msg_long))
+        print("{}".format(lilianjson[msg_id]))
 
 
-#with open(lilianjsonfile, 'w') as jsonfile:
-#    json.dump(lilianjson, jsonfile)
+
+with open(lilianjsonfile, 'w') as jsonfile:
+    json.dump(lilianjson, jsonfile)
