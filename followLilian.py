@@ -49,8 +49,16 @@ def loadjson(json_file) :
     else :
         return {}
 
-def createSentence(ville,meteo,disday) :
+def createFirstSentence(ville, meteo, disday) :
+    locationSentence=[
+        "C'est reparti pour une nouvelle journée ! Passage par VILLE",
+        "Première ville traversée aujourd'hui : VILLE",
+        "Pour bien commencer votre journée, passez par VILLE",
+        "Dommage que je vienne juste de commencer la journée, j'aurais bien pris un café à VILLE",
+        "Je suis passé admirer le lever de soleil à VILLE"
+    ]
 
+def createSentence(ville,meteo,disday) :
     locationSentence=[
         "Je suis vers VILLE",
         "Je pédale à VILLE",
@@ -68,15 +76,16 @@ def createSentence(ville,meteo,disday) :
         "VILLE, son troquet, sa poste et sa mairie",
         "Le village de VILLE souhaite la bienvenue aux cyclistes",
         "VILLE : le bitume de ses routes, et ses paysages",
-        "Si j'avais un peu plus de temps je visiterais bien VILLE"
+        "Si j'avais un peu plus de temps je visiterais bien VILLE",
+        "Je pédale donc je suis.. à VILLE"
     ]
 
     if disday < 20 :
-        locationSentence.append("Je visiterais bien VILLE, mais je n'ai fait que "+disday+" km ce matin")
+        locationSentence.append("Je visiterais bien VILLE, mais je n'ai fait que {} km ce matin".format(disday))
 
     if disday > 50 :
-        locationSentence.append("Déja "+disday+" km aujourd'hui et je suis enfin à VILLE")
-        locationSentence.append(disday+" km depuis mon réveil, et me voici à VILLE")
+        locationSentence.append("Déja {} km aujourd'hui et je suis enfin à VILLE".format(disday))
+        locationSentence.append("{} km depuis mon réveil, et me voici à VILLE".format(disday))
 
     weet_text = random.choice(locationSentence).replace('VILLE',results.city)
 
